@@ -1,0 +1,29 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // Otimização de custo: Pool de conexões limitado (max 3)
+  // O Prisma gerencia o pool de conexões automaticamente.
+  // Para limitar, você pode configurar o `connection_limit` no `DATABASE_URL`
+  // ou no momento de instanciar o PrismaClient, dependendo da sua necessidade.
+  // Exemplo de DATABASE_URL com limite:
+  // DATABASE_URL="postgresql://user:password@localhost:5432/monitoringdb?schema=public&connection_limit=3"
+}
+
+model MonitoredURL {
+  id          String   @id @default(uuid())
+  url         String   @unique
+  name        String
+  interval    Int      // Intervalo de verificação em segundos
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  // Relacionamento com URLCheck (será adicionado em fases futuras)
+  // checks      URLCheck[]
+}
