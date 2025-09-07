@@ -35,7 +35,7 @@ export const performUrlCheck = async (
     const responseTime = Number(endTime - startTime) / 1_000_000; // Convert to milliseconds
 
     // Tratamento de erros específicos (timeout, rede, etc.)
-    if (axios.isAxiosError(error)) {
+    if (error && typeof error === 'object' && 'isAxiosError' in error && error.isAxiosError) {
       if (error.code === "ECONNABORTED") {
         return {
           status: null,
