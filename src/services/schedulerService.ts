@@ -10,7 +10,6 @@ export const scheduleUrlCheck = async (url: MonitoredURL) => {
   await checkQueue.removeRepeatable({
     jobId: url.id,
     every: url.interval * 1000, // Intervalo em milissegundos
-    data: { monitoredUrlId: url.id, url: url.url, timeout: 5000 },
   });
 
   // Adiciona um novo job recorrente
@@ -33,7 +32,6 @@ export const removeScheduledUrlCheck = async (url: MonitoredURL) => {
   await checkQueue.removeRepeatable({
     jobId: url.id,
     every: url.interval * 1000,
-    data: { monitoredUrlId: url.id, url: url.url, timeout: 5000 },
   });
   console.log(`Removed scheduled check for URL: ${url.name} (${url.url}).`);
 };
