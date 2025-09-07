@@ -1,8 +1,9 @@
 // src/queue/checkQueue.ts
 import Queue from "bull";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, MonitoredURL, URLCheck, Incident } from "@prisma/client";
 import { performUrlCheck } from "../services/checkService";
 import { Server as SocketIOServer } from "socket.io"; // Importe o tipo Socket.io Server
+import { sendAlertNotification } from "../services/alertService"; // Importe o novo serviço de alerta
 
 const prisma = new PrismaClient();
 
@@ -41,6 +42,68 @@ checkQueue.process(async (job) => {
     console.log(
       `Check for ${url} completed: Status ${result.status}, Online: ${result.isOnline}`
     );
+
+    // **Lógica de Detecção de Incidentes**
+    const previousCheck = await prisma.uRLCheck.findFirst({
+      where: {
+        monitoredUrlId: monitoredUrlId,
+        id: { not: newCheck.id }, // Exclui o check atual
+      },
+      orderBy: { checkedAt: "desc" },
+    });
+
+    const monitoredUrl = await prisma.monitoredURL.findUnique({
+      where: { id: monitoredUrlId },
+      include: { alertConfigurations: true }, // Inclua as configurações de alerta
+    });
+
+    if (!monitoredUrl) {
+      console.error(`Monitored URL with ID ${monitoredUrlId} not found.`);
+      return;
+    }
+
+    // Detectar DOWN
+    if (
+      newCheck.isOnline === false &&
+      (previousCheck?.isOnline === true || !previousCheck)
+    ) {
+      // URL acabou de ficar offline ou é o primeiro check e já está offline
+      const incident = await prisma.incident.create({
+        data: {
+          monitoredUrlId: monitoredUrlId,
+          type: "DOWN",
+          description: `URL ${monitoredUrl.name} (${monitoredUrl.url}) está offline. Status: ${newCheck.status}.`,
+          startedAt: newCheck.checkedAt,
+        },
+      });
+      console.log(`INCIDENT: URL ${monitoredUrl.name} is DOWN!`);
+      // Enviar alerta
+      await sendAlertNotification(monitoredUrl, incident);
+    }
+    // Detectar UP (resolução de incidente)
+    else if (newCheck.isOnline === true && previousCheck?.isOnline === false) {
+      // URL acabou de voltar a ficar online
+      const lastDownIncident = await prisma.incident.findFirst({
+        where: {
+          monitoredUrlId: monitoredUrlId,
+          type: "DOWN",
+          resolvedAt: null, // Incidente ainda aberto
+        },
+        orderBy: { startedAt: "desc" },
+      });
+
+      if (lastDownIncident) {
+        const resolvedIncident = await prisma.incident.update({
+          where: { id: lastDownIncident.id },
+          data: { resolvedAt: newCheck.checkedAt },
+        });
+        console.log(`INCIDENT: URL ${monitoredUrl.name} is UP again!`);
+        // Enviar alerta de resolução
+        await sendAlertNotification(monitoredUrl, resolvedIncident, true); // true para indicar resolução
+      }
+    }
+    // Opcional: Detectar SLOW_RESPONSE (se o tempo de resposta exceder um limite)
+    // Isso exigiria uma configuração de limite no modelo MonitoredURL ou AlertConfiguration
 
     // **Broadcast da atualização via Socket.io**
     if (ioInstance) {
