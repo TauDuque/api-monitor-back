@@ -2,8 +2,16 @@
 import Queue from "bull";
 import { PrismaClient } from "@prisma/client";
 import { performUrlCheck } from "../services/checkService";
+import { Server as SocketIOServer } from "socket.io"; // Importe o tipo Socket.io Server
 
 const prisma = new PrismaClient();
+
+// A fila agora aceitará uma instância de Socket.io
+let ioInstance: SocketIOServer | null = null;
+
+export const setIoInstance = (io: SocketIOServer) => {
+  ioInstance = io;
+};
 
 // Crie uma fila para os checks de URL
 // Use a URL do Redis das variáveis de ambiente
@@ -21,7 +29,7 @@ checkQueue.process(async (job) => {
 
   // Salve o resultado do check no banco de dados
   try {
-    await prisma.uRLCheck.create({
+    const newCheck = await prisma.uRLCheck.create({
       data: {
         monitoredUrlId,
         status: result.status,
@@ -33,6 +41,19 @@ checkQueue.process(async (job) => {
     console.log(
       `Check for ${url} completed: Status ${result.status}, Online: ${result.isOnline}`
     );
+
+    // **Broadcast da atualização via Socket.io**
+    if (ioInstance) {
+      // Emite para todos os clientes conectados
+      ioInstance.emit("urlStatusUpdate", {
+        monitoredUrlId: newCheck.monitoredUrlId,
+        status: newCheck.status,
+        responseTime: newCheck.responseTime,
+        isOnline: newCheck.isOnline,
+        checkedAt: newCheck.checkedAt,
+      });
+      console.log(`Emitted 'urlStatusUpdate' for ${newCheck.monitoredUrlId}`);
+    }
   } catch (dbError: any) {
     console.error(`Failed to save check result for ${url}:`, dbError);
     // Opcional: Re-lançar o erro para que o Bull possa tentar novamente ou marcar como falha
