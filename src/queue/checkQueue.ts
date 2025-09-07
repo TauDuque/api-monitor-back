@@ -32,8 +32,8 @@ checkQueue.process(async (job) => {
     const newCheck = await prisma.uRLCheck.create({
       data: {
         monitoredUrlId,
-        status: result.status,
-        responseTime: result.responseTime,
+        status: result.status ?? 0, // Default to 0 if null
+        responseTime: result.responseTime ?? 0, // Default to 0 if null
         isOnline: result.isOnline,
         // Você pode adicionar o campo 'error' aqui se quiser persistir
       },
