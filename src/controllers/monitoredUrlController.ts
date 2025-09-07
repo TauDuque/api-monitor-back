@@ -1,5 +1,9 @@
 import { Request, Response } from "express";
 import * as monitoredUrlService from "../services/monitoredUrlService";
+import {
+  scheduleUrlCheck,
+  removeScheduledUrlCheck,
+} from "../services/schedulerService"; // Importe o scheduler
 
 export const createUrl = async (req: Request, res: Response) => {
   try {
@@ -9,6 +13,7 @@ export const createUrl = async (req: Request, res: Response) => {
       name,
       interval,
     });
+    await scheduleUrlCheck(newUrl); // Agende o check para a nova URL
     res.status(201).json(newUrl);
   } catch (error: any) {
     if (error.code === "P2002" && error.meta?.target?.includes("url")) {
@@ -53,6 +58,14 @@ export const updateUrl = async (req: Request, res: Response) => {
       id,
       req.body
     );
+    // Se o intervalo ou status 'active' mudar, reagende
+    if (req.body.interval !== undefined || req.body.active !== undefined) {
+      await removeScheduledUrlCheck(updatedUrl); // Remove o antigo
+      if (updatedUrl.active) {
+        // Apenas reagenda se estiver ativa
+        await scheduleUrlCheck(updatedUrl); // Agende o novo
+      }
+    }
     res.status(200).json(updatedUrl);
   } catch (error: any) {
     if (error.code === "P2025") {
@@ -68,7 +81,12 @@ export const updateUrl = async (req: Request, res: Response) => {
 export const deleteUrl = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const urlToDelete = await monitoredUrlService.getMonitoredURLById(id);
+    if (!urlToDelete) {
+      return res.status(404).json({ message: "URL not found for deletion." });
+    }
     await monitoredUrlService.deleteMonitoredURL(id);
+    await removeScheduledUrlCheck(urlToDelete); // Remova o agendamento ao deletar
     res.status(204).send(); // No content
   } catch (error: any) {
     if (error.code === "P2025") {
