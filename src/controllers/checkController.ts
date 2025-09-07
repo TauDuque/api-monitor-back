@@ -68,3 +68,20 @@ export const getUptime = async (req: Request, res: Response) => {
       .json({ message: "Error fetching uptime metrics", error: error.message });
   }
 };
+
+export const getIncidents = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params; // monitoredUrlId (opcional, se for buscar todos)
+    let incidents;
+    if (id) {
+      incidents = await monitoredUrlService.getIncidentsByUrl(id);
+    } else {
+      incidents = await monitoredUrlService.getAllIncidents();
+    }
+    res.status(200).json(incidents);
+  } catch (error: any) {
+    res
+      .status(500)
+      .json({ message: "Error fetching incidents", error: error.message });
+  }
+};

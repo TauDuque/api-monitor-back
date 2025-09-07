@@ -7,5 +7,7 @@ const router = Router();
 router.get("/:id/history", checkController.getUrlHistory); // Histórico de checks para uma URL
 router.get("/latest", checkController.getLatestChecks); // Último status de todas as URLs
 router.get("/:id/uptime", checkController.getUptime); // Uptime agregado
+router.get("/:id/incidents", checkController.getIncidents); // Incidentes por URL
+router.get("/incidents", checkController.getIncidents); // Todos os incidentes
 
 export default router;

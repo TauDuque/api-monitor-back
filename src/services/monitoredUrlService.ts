@@ -105,3 +105,19 @@ export const getUptimeMetrics = async (
   );
   return result as any[];
 };
+
+// Funções para gerenciar incidentes
+export const getIncidentsByUrl = async (
+  monitoredUrlId: string
+): Promise<any[]> => {
+  return prisma.incident.findMany({
+    where: { monitoredUrlId },
+    orderBy: { startedAt: "desc" },
+  });
+};
+
+export const getAllIncidents = async (): Promise<any[]> => {
+  return prisma.incident.findMany({
+    orderBy: { startedAt: "desc" },
+  });
+};
