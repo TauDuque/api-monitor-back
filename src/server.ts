@@ -6,6 +6,7 @@ import { createServer } from "http"; // Importe para criar o servidor HTTP
 import { Server as SocketIOServer } from "socket.io"; // Importe o Socket.io Server
 import monitoredUrlRoutes from "./routes/monitoredUrlRoutes"; // Importe as rotas
 import checkRoutes from "./routes/checkRoutes"; // Importe as rotas de checks
+import alertConfigRoutes from "./routes/alertConfigRoutes"; // Importe as rotas de configuração de alertas
 import { checkQueue, setIoInstance } from "./queue/checkQueue"; // Importe a fila e setIoInstance
 import { loadAndScheduleAllUrls } from "./services/schedulerService"; // Importe o scheduler
 
@@ -68,6 +69,9 @@ app.use("/api/monitored-urls", monitoredUrlRoutes);
 
 // Use as rotas de checks e dados históricos
 app.use("/api/checks", checkRoutes);
+
+// Use as rotas de configuração de alertas
+app.use("/api/alert-configurations", alertConfigRoutes);
 
 // Passe a instância do io para a fila
 setIoInstance(io);
