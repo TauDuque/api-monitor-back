@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client"; // Importe o PrismaClient
 import Redis from "ioredis"; // Importe o ioredis
 import monitoredUrlRoutes from "./routes/monitoredUrlRoutes"; // Importe as rotas
+import { checkQueue } from "./queue/checkQueue"; // Importe a fila
+import { loadAndScheduleAllUrls } from "./services/schedulerService"; // Importe o scheduler
 
 dotenv.config();
 
@@ -20,6 +22,13 @@ redis.on("error", (err) => {
 });
 
 app.use(express.json()); // Middleware para parsear JSON no corpo das requisições
+
+// Middleware para disponibilizar Prisma e Redis nas requisições (opcional, mas útil)
+app.use((req, res, next) => {
+  (req as any).prisma = prisma;
+  (req as any).redis = redis;
+  next();
+});
 
 // Conexão e teste inicial (pode ser removido após a validação)
 app.get("/", async (req, res) => {
@@ -53,6 +62,22 @@ app.use(
   }
 );
 
-app.listen(PORT, () => {
+// Iniciar o servidor e o scheduler
+app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
+  try {
+    await prisma.$connect();
+    console.log("Connected to PostgreSQL via Prisma!");
+    // Inicie o processador da fila (importante!)
+    // checkQueue.process() já foi chamado em checkQueue.ts, mas o servidor precisa estar rodando
+    // para que o processador funcione.
+    await loadAndScheduleAllUrls(); // Carrega e agenda URLs existentes
+  } catch (error) {
+    console.error("Failed to connect to DB or schedule URLs:", error);
+  }
+});
+
+// Garanta que o PrismaClient se desconecte ao fechar a aplicação
+process.on("beforeExit", async () => {
+  await prisma.$disconnect();
 });
