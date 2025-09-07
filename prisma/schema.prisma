@@ -17,15 +17,16 @@ datasource db {
 }
 
 model MonitoredURL {
-  id          String     @id @default(uuid())
-  url         String     @unique
-  name        String
-  interval    Int        // Intervalo de verificação em segundos
-  active      Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  checks      URLCheck[] // Relacionamento com URLCheck
-  incidents   Incident[] // Relacionamento com Incident
+    id                   String              @id @default(uuid())
+  url                  String              @unique
+  name                 String
+  interval             Int                 // Intervalo de verificação em segundos
+  active               Boolean             @default(true)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  checks               URLCheck[]          // Relacionamento com URLCheck
+  incidents            Incident[]          // Relacionamento com Incident
+  alertConfigurations  AlertConfiguration? // Relacionamento 1-para-1 opcional
 }
 
 model URLCheck {
@@ -48,4 +49,17 @@ model Incident {
   startedAt     DateTime     @default(now())
   resolvedAt    DateTime?
   // Opcional: Adicionar duração, logs, etc.
+}
+
+model AlertConfiguration {
+  id             String       @id @default(uuid())
+  monitoredUrl   MonitoredURL @relation(fields: [monitoredUrlId], references: [id])
+  monitoredUrlId String       @unique // Uma configuração por URL
+  emailRecipient String?      // Endereço de e-mail para notificação
+  webhookUrl     String?      // URL para webhook
+  notifyOnDown   Boolean      @default(true)
+  notifyOnUp     Boolean      @default(true)
+  // Opcional: threshold para tempo de resposta, número de falhas consecutivas, etc.
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 }
