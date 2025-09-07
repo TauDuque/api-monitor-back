@@ -17,13 +17,35 @@ datasource db {
 }
 
 model MonitoredURL {
-  id          String   @id @default(uuid())
-  url         String   @unique
+  id          String     @id @default(uuid())
+  url         String     @unique
   name        String
-  interval    Int      // Intervalo de verificação em segundos
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  // Relacionamento com URLCheck (será adicionado em fases futuras)
-  // checks      URLCheck[]
+  interval    Int        // Intervalo de verificação em segundos
+  active      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  checks      URLCheck[] // Relacionamento com URLCheck
+  incidents   Incident[] // Relacionamento com Incident
+}
+
+model URLCheck {
+  id            String       @id @default(uuid())
+  monitoredUrl  MonitoredURL @relation(fields: [monitoredUrlId], references: [id])
+  monitoredUrlId String
+  status        Int          // Status HTTP (ex: 200, 404, 500)
+  responseTime  Int          // Tempo de resposta em ms
+  isOnline      Boolean      // True se o status for 2xx, False caso contrário
+  checkedAt     DateTime     @default(now())
+  // Opcional: Adicionar mais detalhes como headers, body, etc.
+}
+
+model Incident {
+  id            String       @id @default(uuid())
+  monitoredUrl  MonitoredURL @relation(fields: [monitoredUrlId], references: [id])
+  monitoredUrlId String
+  type          String       // Tipo de incidente (ex: "DOWN", "SLOW_RESPONSE")
+  description   String?      // Descrição detalhada do incidente
+  startedAt     DateTime     @default(now())
+  resolvedAt    DateTime?
+  // Opcional: Adicionar duração, logs, etc.
 }
