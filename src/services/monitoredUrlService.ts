@@ -73,7 +73,7 @@ export const getLastCheckStatusForAllUrls = async (): Promise<any[]> => {
     FROM "URLCheck"
     ORDER BY "monitoredUrlId", "checkedAt" DESC;
   `;
-  return latestChecks;
+  return latestChecks as any[];
 };
 
 // Função para obter métricas de uptime agregadas por período
@@ -103,5 +103,5 @@ export const getUptimeMetrics = async (
     startDate,
     endDate
   );
-  return result;
+  return result as any[];
 };
