@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client"; // Importe o PrismaClient
 import Redis from "ioredis"; // Importe o ioredis
+import monitoredUrlRoutes from "./routes/monitoredUrlRoutes"; // Importe as rotas
 
 dotenv.config();
 
@@ -18,8 +19,9 @@ redis.on("error", (err) => {
   console.error("Redis connection error:", err);
 });
 
-app.use(express.json());
+app.use(express.json()); // Middleware para parsear JSON no corpo das requisições
 
+// Conexão e teste inicial (pode ser removido após a validação)
 app.get("/", async (req, res) => {
   try {
     // Teste a conexão com o banco de dados
@@ -34,6 +36,22 @@ app.get("/", async (req, res) => {
     await prisma.$disconnect(); // Desconecta após o teste
   }
 });
+
+// Use as rotas de URLs monitoradas
+app.use("/api/monitored-urls", monitoredUrlRoutes);
+
+// Tratamento de erros genérico (Middleware de tratamento de erros)
+app.use(
+  (
+    err: any,
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction
+  ) => {
+    console.error(err.stack);
+    res.status(500).send("Something broke!");
+  }
+);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
