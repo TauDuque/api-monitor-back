@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client"; // Importe o PrismaClient
 import Redis from "ioredis"; // Importe o ioredis
 import monitoredUrlRoutes from "./routes/monitoredUrlRoutes"; // Importe as rotas
+import checkRoutes from "./routes/checkRoutes"; // Importe as rotas de checks
 import { checkQueue } from "./queue/checkQueue"; // Importe a fila
 import { loadAndScheduleAllUrls } from "./services/schedulerService"; // Importe o scheduler
 
@@ -48,6 +49,9 @@ app.get("/", async (req, res) => {
 
 // Use as rotas de URLs monitoradas
 app.use("/api/monitored-urls", monitoredUrlRoutes);
+
+// Use as rotas de checks e dados históricos
+app.use("/api/checks", checkRoutes);
 
 // Tratamento de erros genérico (Middleware de tratamento de erros)
 app.use(
