@@ -4,6 +4,10 @@ import {
   scheduleUrlCheck,
   removeScheduledUrlCheck,
 } from "../services/schedulerService"; // Importe o scheduler
+import { performUrlCheck } from "../services/checkService"; // Importe o checkService
+import { PrismaClient } from "@prisma/client"; // Importe o PrismaClient
+
+const prisma = new PrismaClient();
 
 export const createUrl = async (req: Request, res: Response) => {
   try {
@@ -13,7 +17,34 @@ export const createUrl = async (req: Request, res: Response) => {
       name,
       interval,
     });
-    await scheduleUrlCheck(newUrl); // Agende o check para a nova URL
+
+    // Fazer verificação imediata
+    try {
+      console.log(`Executando verificação imediata para: ${url}`);
+      const checkResult = await performUrlCheck(url, 5000);
+
+      // Salvar o resultado da verificação imediata
+      await prisma.uRLCheck.create({
+        data: {
+          monitoredUrlId: newUrl.id,
+          status: checkResult.status ?? 0,
+          responseTime: checkResult.responseTime ?? 0,
+          isOnline: checkResult.isOnline,
+        },
+      });
+
+      console.log(
+        `Verificação imediata concluída: Status ${checkResult.status}, Online: ${checkResult.isOnline}`
+      );
+    } catch (immediateCheckError) {
+      console.error(
+        `Erro na verificação imediata para ${url}:`,
+        immediateCheckError
+      );
+      // Não falha a criação da URL se a verificação imediata der erro
+    }
+
+    await scheduleUrlCheck(newUrl); // Agende o check recorrente para a nova URL
     res.status(201).json(newUrl);
   } catch (error: any) {
     if (error.code === "P2002" && error.meta?.target?.includes("url")) {
