@@ -9,6 +9,7 @@ import checkRoutes from "./routes/checkRoutes"; // Importe as rotas de checks
 import alertConfigRoutes from "./routes/alertConfigRoutes"; // Importe as rotas de configuração de alertas
 import { checkQueue, setIoInstance } from "./queue/checkQueue"; // Importe a fila e setIoInstance
 import { loadAndScheduleAllUrls } from "./services/schedulerService"; // Importe o scheduler
+import { apiRateLimiter, urlCheckRateLimiter } from "./middleware/rateLimiter";
 
 dotenv.config();
 
@@ -24,11 +25,27 @@ const io = new SocketIOServer(httpServer, {
   cors: {
     origin: process.env.FRONTEND_URL || "http://localhost:5173", // URL do seu frontend
     methods: ["GET", "POST"],
+    credentials: true,
   },
+  transports: ["polling", "websocket"],
+  allowEIO3: true,
 });
 
-const prisma = new PrismaClient(); // Instancie o PrismaClient
-const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379"); // Conecta ao Redis
+// Otimização de custo: Pool de conexões limitado
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL + "?connection_limit=3&pool_timeout=20",
+    },
+  },
+});
+// Otimização de custo: Redis com configurações econômicas
+const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
+  maxRetriesPerRequest: 2,
+  lazyConnect: true,
+  connectTimeout: 10000,
+  commandTimeout: 5000,
+});
 
 redis.on("connect", () => {
   console.log("Connected to Redis!");
@@ -39,6 +56,9 @@ redis.on("error", (err) => {
 });
 
 app.use(express.json()); // Middleware para parsear JSON no corpo das requisições
+
+// Otimização de custo: Rate limiting para reduzir carga
+app.use(apiRateLimiter);
 
 // Middleware para disponibilizar Prisma, Redis e IO nas requisições (útil para controllers)
 app.use((req, res, next) => {
@@ -72,6 +92,15 @@ app.use("/api/checks", checkRoutes);
 
 // Use as rotas de configuração de alertas
 app.use("/api/alert-configurations", alertConfigRoutes);
+
+// Health check específico para Socket.io
+app.get("/socket.io/", (req, res) => {
+  res.json({
+    message: "Socket.io endpoint is available",
+    status: "ready",
+    transports: ["polling", "websocket"],
+  });
+});
 
 // Passe a instância do io para a fila
 setIoInstance(io);
