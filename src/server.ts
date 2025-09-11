@@ -29,6 +29,8 @@ const io = new SocketIOServer(httpServer, {
   },
   transports: ["polling", "websocket"],
   allowEIO3: true,
+  path: "/socket.io/",
+  serveClient: false,
 });
 
 // Otimização de custo: Pool de conexões limitado
@@ -99,6 +101,20 @@ app.get("/socket.io/", (req, res) => {
     message: "Socket.io endpoint is available",
     status: "ready",
     transports: ["polling", "websocket"],
+    path: "/socket.io/",
+  });
+});
+
+// Debug endpoint para verificar configuração do Socket.io
+app.get("/socket.io/debug", (req, res) => {
+  res.json({
+    message: "Socket.io debug info",
+    server: "running",
+    path: "/socket.io/",
+    transports: ["polling", "websocket"],
+    cors: {
+      origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    },
   });
 });
 
