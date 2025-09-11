@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import dotenv from "dotenv";
 import { PrismaClient } from "@prisma/client"; // Importe o PrismaClient
 import Redis from "ioredis"; // Importe o ioredis
@@ -15,6 +16,20 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Configuração de CORS para permitir requisições do frontend
+app.use(
+  cors({
+    origin: [
+      process.env.FRONTEND_URL || "http://localhost:5173",
+      "https://api-monitor-front.vercel.app",
+      "https://*.vercel.app",
+    ],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 // Crie um servidor HTTP a partir do app Express
 const httpServer = createServer(app);
