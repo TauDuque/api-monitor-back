@@ -34,38 +34,41 @@ app.use(
 // Crie um servidor HTTP a partir do app Express
 const httpServer = createServer(app);
 
-// Anexe o Socket.io ao servidor HTTP
-// Configure o CORS para permitir conexões do seu frontend
-const io = new SocketIOServer(httpServer, {
-  cors: {
-    origin: [
-      process.env.FRONTEND_URL || "http://localhost:5173",
-      "https://api-monitor-front.vercel.app", // URL da Vercel
-      "https://*.vercel.app", // Qualquer subdomínio da Vercel
-    ],
-    methods: ["GET", "POST"],
-    credentials: true,
-  },
-  transports: ["polling", "websocket"],
-  allowEIO3: true,
-  path: "/socket.io/",
-  serveClient: false,
-});
+// Anexe o Socket.io ao servidor HTTP (desabilitado em produção para economia)
+const io =
+  process.env.NODE_ENV === "production"
+    ? null
+    : new SocketIOServer(httpServer, {
+        cors: {
+          origin: [
+            process.env.FRONTEND_URL || "http://localhost:5173",
+            "https://api-monitor-front.vercel.app", // URL da Vercel
+            "https://*.vercel.app", // Qualquer subdomínio da Vercel
+          ],
+          methods: ["GET", "POST"],
+          credentials: true,
+        },
+        transports: ["polling", "websocket"],
+        allowEIO3: true,
+        path: "/socket.io/",
+        serveClient: false,
+      });
 
-// Otimização de custo: Pool de conexões limitado
+// Otimização de custo: Pool de conexões ultra-limitado
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: process.env.DATABASE_URL + "?connection_limit=3&pool_timeout=20",
+      url: process.env.DATABASE_URL + "?connection_limit=1&pool_timeout=30",
     },
   },
 });
-// Otimização de custo: Redis com configurações econômicas
+// Otimização de custo: Redis com configurações ultra-econômicas
 const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
-  maxRetriesPerRequest: 2,
+  maxRetriesPerRequest: 1,
   lazyConnect: true,
-  connectTimeout: 10000,
-  commandTimeout: 5000,
+  connectTimeout: 15000,
+  commandTimeout: 10000,
+  enableReadyCheck: false,
 });
 
 redis.on("connect", () => {
@@ -81,11 +84,46 @@ app.use(express.json()); // Middleware para parsear JSON no corpo das requisiç�
 // Otimização de custo: Rate limiting para reduzir carga
 app.use(apiRateLimiter);
 
+// Cache simples para reduzir requisições ao banco
+const cache = new Map();
+const CACHE_TTL = 30000; // 30 segundos
+
+app.use((req, res, next) => {
+  // Cache para GET requests
+  if (req.method === "GET") {
+    const cacheKey = req.originalUrl;
+    const cached = cache.get(cacheKey);
+
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return res.json(cached.data);
+    }
+
+    // Interceptar resposta para cachear
+    const originalJson = res.json;
+    res.json = function (data) {
+      cache.set(cacheKey, {
+        data,
+        timestamp: Date.now(),
+      });
+
+      // Limpar cache antigo (manter apenas 50 entradas)
+      if (cache.size > 50) {
+        const firstKey = cache.keys().next().value;
+        cache.delete(firstKey);
+      }
+
+      return originalJson.call(this, data);
+    };
+  }
+
+  next();
+});
+
 // Middleware para disponibilizar Prisma, Redis e IO nas requisições (útil para controllers)
 app.use((req, res, next) => {
   (req as any).prisma = prisma;
   (req as any).redis = redis;
-  (req as any).io = io; // Adicione o objeto io ao request
+  (req as any).io = io; // Adicione o objeto io ao request (pode ser null em produção)
   next();
 });
 
@@ -142,32 +180,34 @@ app.get("/socket.io/debug", (req, res) => {
   });
 });
 
-// Passe a instância do io para a fila
-setIoInstance(io);
+// Passe a instância do io para a fila (apenas se não for null)
+if (io) {
+  setIoInstance(io);
 
-// Eventos do Socket.io
-io.on("connection", (socket) => {
-  console.log("A user connected:", socket.id);
-  console.log("Connection origin:", socket.handshake.headers.origin);
+  // Eventos do Socket.io
+  io.on("connection", (socket) => {
+    console.log("A user connected:", socket.id);
+    console.log("Connection origin:", socket.handshake.headers.origin);
 
-  socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
+    socket.on("disconnect", () => {
+      console.log("User disconnected:", socket.id);
+    });
+
+    // Você pode adicionar mais listeners aqui para comunicação cliente-servidor
+    // Ex: socket.on('subscribeToUrl', (urlId) => { ... });
   });
 
-  // Você pode adicionar mais listeners aqui para comunicação cliente-servidor
-  // Ex: socket.on('subscribeToUrl', (urlId) => { ... });
-});
-
-// Log para debug do Socket.io
-io.engine.on("connection_error", (err) => {
-  console.log(
-    "Socket.io connection error:",
-    err.req,
-    err.code,
-    err.message,
-    err.context
-  );
-});
+  // Log para debug do Socket.io
+  io.engine.on("connection_error", (err) => {
+    console.log(
+      "Socket.io connection error:",
+      err.req,
+      err.code,
+      err.message,
+      err.context
+    );
+  });
+}
 
 // Tratamento de erros genérico (Middleware de tratamento de erros)
 app.use(
