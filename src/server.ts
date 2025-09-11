@@ -78,15 +78,20 @@ app.use((req, res, next) => {
 app.get("/", async (req, res) => {
   try {
     // Teste a conexão com o banco de dados
-    await prisma.$connect();
-    res.send("Monitoring API is running and connected to DB!");
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({
+      message: "Monitoring API is running and connected to DB!",
+      status: "healthy",
+      database: "connected",
+    });
   } catch (error) {
     console.error("Failed to connect to DB:", error);
-    res
-      .status(500)
-      .send("Monitoring API is running but failed to connect to DB.");
-  } finally {
-    await prisma.$disconnect(); // Desconecta após o teste
+    res.status(500).json({
+      message: "Monitoring API is running but failed to connect to DB.",
+      status: "unhealthy",
+      database: "disconnected",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
   }
 });
 
@@ -157,8 +162,15 @@ app.use(
     res: express.Response,
     next: express.NextFunction
   ) => {
-    console.error(err.stack);
-    res.status(500).send("Something broke!");
+    console.error("Error:", err.stack);
+    console.error("Request URL:", req.url);
+    console.error("Request Method:", req.method);
+
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: err.message || "Something went wrong",
+      status: 500,
+    });
   }
 );
 
