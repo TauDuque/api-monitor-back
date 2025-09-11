@@ -12,14 +12,19 @@ export const scheduleUrlCheck = async (url: MonitoredURL) => {
     every: url.interval * 1000, // Intervalo em milissegundos
   });
 
-  // Adiciona um novo job recorrente
+  // Otimização de custo: Timeout reduzido e configurações econômicas
   await checkQueue.add(
-    { monitoredUrlId: url.id, url: url.url, timeout: 5000 }, // Dados do job
+    { monitoredUrlId: url.id, url: url.url, timeout: 3000 }, // Timeout reduzido para economizar CPU
     {
       jobId: url.id, // Use o ID da URL como ID do job para fácil gerenciamento
       repeat: { every: url.interval * 1000 }, // Repetir a cada 'interval' segundos
-      removeOnComplete: true, // Remove o job da fila após conclusão bem-sucedida
-      removeOnFail: false, // Mantém o job na fila se falhar para depuração
+      removeOnComplete: 5, // Mantém apenas 5 jobs completos para economizar memória
+      removeOnFail: 3, // Mantém apenas 3 jobs falhados para economizar memória
+      attempts: 2, // Reduz tentativas para economizar CPU
+      backoff: {
+        type: "exponential",
+        delay: 2000,
+      },
     }
   );
   console.log(
