@@ -23,7 +23,11 @@ const httpServer = createServer(app);
 // Configure o CORS para permitir conexões do seu frontend
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:5173", // URL do seu frontend
+    origin: [
+      process.env.FRONTEND_URL || "http://localhost:5173",
+      "https://api-monitor-front.vercel.app", // URL da Vercel
+      "https://*.vercel.app", // Qualquer subdomínio da Vercel
+    ],
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -124,6 +128,7 @@ setIoInstance(io);
 // Eventos do Socket.io
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
+  console.log("Connection origin:", socket.handshake.headers.origin);
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
@@ -131,6 +136,17 @@ io.on("connection", (socket) => {
 
   // Você pode adicionar mais listeners aqui para comunicação cliente-servidor
   // Ex: socket.on('subscribeToUrl', (urlId) => { ... });
+});
+
+// Log para debug do Socket.io
+io.engine.on("connection_error", (err) => {
+  console.log(
+    "Socket.io connection error:",
+    err.req,
+    err.code,
+    err.message,
+    err.context
+  );
 });
 
 // Tratamento de erros genérico (Middleware de tratamento de erros)
