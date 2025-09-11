@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,58 +5,49 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  // Otimização de custo: Pool de conexões limitado (max 3)
-  // O Prisma gerencia o pool de conexões automaticamente.
-  // Para limitar, você pode configurar o `connection_limit` no `DATABASE_URL`
-  // ou no momento de instanciar o PrismaClient, dependendo da sua necessidade.
-  // Exemplo de DATABASE_URL com limite:
-  // DATABASE_URL="postgresql://user:password@localhost:5432/monitoringdb?schema=public&connection_limit=3"
 }
 
 model MonitoredURL {
-    id                   String              @id @default(uuid())
-  url                  String              @unique
-  name                 String
-  interval             Int                 // Intervalo de verificação em segundos
-  active               Boolean             @default(true)
-  createdAt            DateTime            @default(now())
-  updatedAt            DateTime            @updatedAt
-  checks               URLCheck[]          // Relacionamento com URLCheck
-  incidents            Incident[]          // Relacionamento com Incident
-  alertConfigurations  AlertConfiguration? // Relacionamento 1-para-1 opcional
+  id                  String              @id @default(uuid())
+  url                 String              @unique
+  name                String
+  interval            Int
+  active              Boolean             @default(true)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  alertConfigurations AlertConfiguration?
+  incidents           Incident[]
+  checks              URLCheck[]
 }
 
 model URLCheck {
-  id            String       @id @default(uuid())
-  monitoredUrl  MonitoredURL @relation(fields: [monitoredUrlId], references: [id])
+  id             String       @id @default(uuid())
   monitoredUrlId String
-  status        Int          // Status HTTP (ex: 200, 404, 500)
-  responseTime  Int          // Tempo de resposta em ms
-  isOnline      Boolean      // True se o status for 2xx, False caso contrário
-  checkedAt     DateTime     @default(now())
-  // Opcional: Adicionar mais detalhes como headers, body, etc.
+  status         Int
+  responseTime   Int
+  isOnline       Boolean
+  checkedAt      DateTime     @default(now())
+  monitoredUrl   MonitoredURL @relation(fields: [monitoredUrlId], references: [id])
 }
 
 model Incident {
-  id            String       @id @default(uuid())
-  monitoredUrl  MonitoredURL @relation(fields: [monitoredUrlId], references: [id])
+  id             String       @id @default(uuid())
   monitoredUrlId String
-  type          String       // Tipo de incidente (ex: "DOWN", "SLOW_RESPONSE")
-  description   String?      // Descrição detalhada do incidente
-  startedAt     DateTime     @default(now())
-  resolvedAt    DateTime?
-  // Opcional: Adicionar duração, logs, etc.
+  type           String
+  description    String?
+  startedAt      DateTime     @default(now())
+  resolvedAt     DateTime?
+  monitoredUrl   MonitoredURL @relation(fields: [monitoredUrlId], references: [id])
 }
 
 model AlertConfiguration {
   id             String       @id @default(uuid())
-  monitoredUrl   MonitoredURL @relation(fields: [monitoredUrlId], references: [id])
-  monitoredUrlId String       @unique // Uma configuração por URL
-  emailRecipient String?      // Endereço de e-mail para notificação
-  webhookUrl     String?      // URL para webhook
+  monitoredUrlId String       @unique
+  emailRecipient String?
+  webhookUrl     String?
   notifyOnDown   Boolean      @default(true)
   notifyOnUp     Boolean      @default(true)
-  // Opcional: threshold para tempo de resposta, número de falhas consecutivas, etc.
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+  monitoredUrl   MonitoredURL @relation(fields: [monitoredUrlId], references: [id])
 }
