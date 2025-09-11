@@ -9,9 +9,10 @@ interface CheckResult {
   error?: string;
 }
 
+// Otimização de custo: Timeout padrão reduzido
 export const performUrlCheck = async (
   url: string,
-  timeout: number = 5000
+  timeout: number = 3000
 ): Promise<CheckResult> => {
   const startTime = process.hrtime.bigint(); // High-resolution time
 
@@ -35,7 +36,12 @@ export const performUrlCheck = async (
     const responseTime = Number(endTime - startTime) / 1_000_000; // Convert to milliseconds
 
     // Tratamento de erros específicos (timeout, rede, etc.)
-    if (error && typeof error === 'object' && 'isAxiosError' in error && error.isAxiosError) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "isAxiosError" in error &&
+      error.isAxiosError
+    ) {
       if (error.code === "ECONNABORTED") {
         return {
           status: null,
