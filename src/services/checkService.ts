@@ -9,10 +9,10 @@ interface CheckResult {
   error?: string;
 }
 
-// Otimização de custo: Timeout padrão reduzido
+// Otimização de custo: Timeout ultra-reduzido
 export const performUrlCheck = async (
   url: string,
-  timeout: number = 3000
+  timeout: number = 1500
 ): Promise<CheckResult> => {
   const startTime = process.hrtime.bigint(); // High-resolution time
 
