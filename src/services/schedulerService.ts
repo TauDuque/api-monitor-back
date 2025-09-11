@@ -14,10 +14,10 @@ export const scheduleUrlCheck = async (url: MonitoredURL) => {
 
   // Otimização de custo: Configurações ultra-econômicas
   await checkQueue.add(
-    { monitoredUrlId: url.id, url: url.url, timeout: 2000 }, // Timeout ainda menor
+    { monitoredUrlId: url.id, url: url.url, timeout: 1000 }, // Timeout ultra-baixo
     {
       jobId: url.id, // Use o ID da URL como ID do job para fácil gerenciamento
-      repeat: { every: Math.max(url.interval * 1000, 300000) }, // Mínimo 5 minutos entre checks
+      repeat: { every: Math.max(url.interval * 1000, 1800000) }, // Mínimo 30 minutos entre checks
       removeOnComplete: 2, // Mantém apenas 2 jobs completos
       removeOnFail: 1, // Mantém apenas 1 job falhado
       attempts: 1, // Apenas 1 tentativa para economizar CPU

@@ -50,14 +50,14 @@ export const rateLimiter = (options: RateLimitOptions) => {
 
 // Rate limiter específico para checks de URL
 export const urlCheckRateLimiter = rateLimiter({
-  windowMs: 60000, // 1 minuto
-  max: 10, // Máximo 10 checks por minuto por IP
+  windowMs: 300000, // 5 minutos
+  max: 3, // Máximo 3 checks por 5 minutos por IP
   keyGenerator: (req) => `url_check:${req.ip}`,
 });
 
-// Rate limiter para API geral
+// Rate limiter para API geral (ultra-restritivo)
 export const apiRateLimiter = rateLimiter({
   windowMs: 60000, // 1 minuto
-  max: 100, // Máximo 100 requisições por minuto por IP
+  max: 20, // Máximo 20 requisições por minuto por IP
   keyGenerator: (req) => `api:${req.ip}`,
 });

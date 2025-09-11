@@ -34,25 +34,8 @@ app.use(
 // Crie um servidor HTTP a partir do app Express
 const httpServer = createServer(app);
 
-// Anexe o Socket.io ao servidor HTTP (desabilitado em produção para economia)
-const io =
-  process.env.NODE_ENV === "production"
-    ? null
-    : new SocketIOServer(httpServer, {
-        cors: {
-          origin: [
-            process.env.FRONTEND_URL || "http://localhost:5173",
-            "https://api-monitor-front.vercel.app", // URL da Vercel
-            "https://*.vercel.app", // Qualquer subdomínio da Vercel
-          ],
-          methods: ["GET", "POST"],
-          credentials: true,
-        },
-        transports: ["polling", "websocket"],
-        allowEIO3: true,
-        path: "/socket.io/",
-        serveClient: false,
-      });
+// Socket.io completamente desabilitado para economia máxima
+const io = null;
 
 // Otimização de custo: Pool de conexões ultra-limitado
 const prisma = new PrismaClient({
@@ -86,9 +69,16 @@ app.use(apiRateLimiter);
 
 // Cache simples para reduzir requisições ao banco
 const cache = new Map();
-const CACHE_TTL = 30000; // 30 segundos
+const CACHE_TTL = 300000; // 5 minutos (cache mais longo)
+
+// Sistema de hibernação para economizar recursos
+let lastActivity = Date.now();
+const HIBERNATION_TIMEOUT = 10 * 60 * 1000; // 10 minutos sem atividade
 
 app.use((req, res, next) => {
+  // Registrar atividade para hibernação
+  lastActivity = Date.now();
+
   // Cache para GET requests
   if (req.method === "GET") {
     const cacheKey = req.originalUrl;
@@ -106,8 +96,8 @@ app.use((req, res, next) => {
         timestamp: Date.now(),
       });
 
-      // Limpar cache antigo (manter apenas 50 entradas)
-      if (cache.size > 50) {
+      // Limpar cache antigo (manter apenas 20 entradas para economizar RAM)
+      if (cache.size > 20) {
         const firstKey = cache.keys().next().value;
         cache.delete(firstKey);
       }
@@ -118,6 +108,21 @@ app.use((req, res, next) => {
 
   next();
 });
+
+// Hibernação automática para economizar recursos
+setInterval(() => {
+  const timeSinceLastActivity = Date.now() - lastActivity;
+
+  if (timeSinceLastActivity > HIBERNATION_TIMEOUT) {
+    console.log("🔥 Sistema hibernando para economizar recursos...");
+    // Limpar cache para liberar memória
+    cache.clear();
+    // Forçar garbage collection se disponível
+    if (global.gc) {
+      global.gc();
+    }
+  }
+}, 60000); // Verificar a cada minuto
 
 // Middleware para disponibilizar Prisma, Redis e IO nas requisições (útil para controllers)
 app.use((req, res, next) => {
@@ -157,57 +162,18 @@ app.use("/api/checks", checkRoutes);
 // Use as rotas de configuração de alertas
 app.use("/api/alert-configurations", alertConfigRoutes);
 
-// Health check específico para Socket.io
-app.get("/socket.io/", (req, res) => {
+// Health check simples
+app.get("/health", (req, res) => {
   res.json({
-    message: "Socket.io endpoint is available",
-    status: "ready",
-    transports: ["polling", "websocket"],
-    path: "/socket.io/",
+    message: "API Monitor Backend",
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
   });
 });
 
-// Debug endpoint para verificar configuração do Socket.io
-app.get("/socket.io/debug", (req, res) => {
-  res.json({
-    message: "Socket.io debug info",
-    server: "running",
-    path: "/socket.io/",
-    transports: ["polling", "websocket"],
-    cors: {
-      origin: process.env.FRONTEND_URL || "http://localhost:5173",
-    },
-  });
-});
-
-// Passe a instância do io para a fila (apenas se não for null)
-if (io) {
-  setIoInstance(io);
-
-  // Eventos do Socket.io
-  io.on("connection", (socket) => {
-    console.log("A user connected:", socket.id);
-    console.log("Connection origin:", socket.handshake.headers.origin);
-
-    socket.on("disconnect", () => {
-      console.log("User disconnected:", socket.id);
-    });
-
-    // Você pode adicionar mais listeners aqui para comunicação cliente-servidor
-    // Ex: socket.on('subscribeToUrl', (urlId) => { ... });
-  });
-
-  // Log para debug do Socket.io
-  io.engine.on("connection_error", (err) => {
-    console.log(
-      "Socket.io connection error:",
-      err.req,
-      err.code,
-      err.message,
-      err.context
-    );
-  });
-}
+// Socket.io completamente removido para economia máxima
+console.log("🚀 Socket.io desabilitado para economia de recursos");
 
 // Tratamento de erros genérico (Middleware de tratamento de erros)
 app.use(
