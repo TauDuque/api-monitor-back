@@ -64,3 +64,6 @@ prisma/migrations/dev.db*
 
 # Docker
 docker-compose.override.yml
+
+# Documentation (sensitive deployment info)
+DEPLOY-MANUAL.md
