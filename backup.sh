@@ -64,10 +64,10 @@ tar -czf "$BACKUP_DIR/api_monitor_backup_$DATE.tar.gz" -C "$BACKUP_DIR" \
 # Limpar arquivos individuais
 rm -f "$BACKUP_DIR/postgres_backup_$DATE.sql" "$BACKUP_DIR/redis_backup_$DATE.rdb" 2>/dev/null || true
 
-# Limpar backups antigos (manter apenas os 7 mais recentes)
+# Limpar backups antigos (manter apenas 1 backup)
 log "Limpando backups antigos..."
 cd $BACKUP_DIR
-ls -t api_monitor_backup_*.tar.gz | tail -n +8 | xargs rm -f 2>/dev/null || true
+ls -t api_monitor_backup_*.tar.gz | tail -n +2 | xargs rm -f 2>/dev/null || true
 
 log "🎉 Backup concluído!"
 log "📁 Arquivo: $BACKUP_DIR/api_monitor_backup_$DATE.tar.gz"
