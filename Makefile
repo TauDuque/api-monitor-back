@@ -1,4 +1,4 @@
-# API Monitor - Makefile para comandos rápidos
+# API Monitor - Makefile para comandos rápidos (DigitalOcean)
 # Use: make help para ver todos os comandos
 
 .PHONY: help deploy start stop restart logs backup ssl clean test dev

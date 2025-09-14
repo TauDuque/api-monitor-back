@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# API Monitor - Deploy Script para Linode
+# API Monitor - Deploy Script para DigitalOcean
 # Este script automatiza o deploy da aplicação
 
 set -e
