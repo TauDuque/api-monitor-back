@@ -27,7 +27,7 @@ model URLCheck {
   responseTime   Int
   isOnline       Boolean
   checkedAt      DateTime     @default(now())
-  monitoredUrl   MonitoredURL @relation(fields: [monitoredUrlId], references: [id])
+  monitoredUrl   MonitoredURL @relation(fields: [monitoredUrlId], references: [id], onDelete: Cascade)
 }
 
 model Incident {
@@ -37,7 +37,7 @@ model Incident {
   description    String?
   startedAt      DateTime     @default(now())
   resolvedAt     DateTime?
-  monitoredUrl   MonitoredURL @relation(fields: [monitoredUrlId], references: [id])
+  monitoredUrl   MonitoredURL @relation(fields: [monitoredUrlId], references: [id], onDelete: Cascade)
 }
 
 model AlertConfiguration {
@@ -49,5 +49,5 @@ model AlertConfiguration {
   notifyOnUp     Boolean      @default(true)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
-  monitoredUrl   MonitoredURL @relation(fields: [monitoredUrlId], references: [id])
+  monitoredUrl   MonitoredURL @relation(fields: [monitoredUrlId], references: [id], onDelete: Cascade)
 }

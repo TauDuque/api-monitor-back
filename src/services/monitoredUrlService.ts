@@ -28,6 +28,12 @@ export const updateMonitoredURL = async (
 };
 
 export const deleteMonitoredURL = async (id: string): Promise<MonitoredURL> => {
+  // Deletar registros relacionados primeiro (para evitar foreign key constraint)
+  await prisma.uRLCheck.deleteMany({ where: { monitoredUrlId: id } });
+  await prisma.incident.deleteMany({ where: { monitoredUrlId: id } });
+  await prisma.alertConfiguration.deleteMany({ where: { monitoredUrlId: id } });
+
+  // Agora deletar a URL monitorada
   return prisma.monitoredURL.delete({ where: { id } });
 };
 
