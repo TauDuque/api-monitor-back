@@ -119,6 +119,28 @@ app.use("/api/checks", checkRoutes);
 // Use as rotas de configuração de alertas
 app.use("/api/alert-configurations", alertConfigRoutes);
 
+// Health check para Docker
+app.get("/health", async (req, res) => {
+  try {
+    // Teste básico da aplicação
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({
+      status: "healthy",
+      message: "API Monitor backend is running",
+      database: "connected",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: "unhealthy",
+      message: "Service unavailable",
+      database: "disconnected",
+      error: error instanceof Error ? error.message : "Unknown error",
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
 // Health check específico para Socket.io
 app.get("/socket.io/", (req, res) => {
   res.json({

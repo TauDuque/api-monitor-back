@@ -67,3 +67,12 @@ docker-compose.override.yml
 
 # Documentation (sensitive deployment info)
 DEPLOY-MANUAL.md
+
+# Google Cloud credentials
+google-credentials.json
+*-credentials.json
+client_secret_*.json
+service-account-*.json
+
+# Gmail API setup documentation (contains sensitive info)
+GMAIL-API-SETUP.md
