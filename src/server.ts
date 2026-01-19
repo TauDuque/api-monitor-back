@@ -12,6 +12,8 @@ import authRoutes from "./auth/routes"; // Importe as rotas de autenticação
 import { checkQueue, setIoInstance } from "./queue/checkQueue"; // Importe a fila e setIoInstance
 import { loadAndScheduleAllUrls } from "./services/schedulerService"; // Importe o scheduler
 import { apiRateLimiter, urlCheckRateLimiter } from "./middleware/rateLimiter";
+import { securityHeaders } from "./middleware/securityHeaders";
+import { securityLogger } from "./middleware/securityLogger";
 
 dotenv.config();
 
@@ -19,16 +21,51 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configuração de CORS para permitir requisições do frontend
+// Validação mais restritiva de origens
+const getAllowedOrigins = (): string[] => {
+  const origins: string[] = [];
+  
+  if (process.env.FRONTEND_URL) {
+    origins.push(process.env.FRONTEND_URL);
+  }
+  
+  // Adicionar origem padrão para desenvolvimento
+  if (process.env.NODE_ENV !== "production") {
+    origins.push("http://localhost:5173");
+  }
+  
+  // Adicionar origens de produção
+  if (process.env.NODE_ENV === "production") {
+    origins.push("https://api-monitor-front.vercel.app");
+    // Nota: Express CORS não suporta wildcards como "https://*.vercel.app"
+    // Se necessário, adicionar origens específicas aqui
+  }
+  
+  return origins;
+};
+
 app.use(
   cors({
-    origin: [
-      process.env.FRONTEND_URL || "http://localhost:5173",
-      "https://api-monitor-front.vercel.app",
-      "https://*.vercel.app",
-    ],
+    origin: (origin, callback) => {
+      const allowedOrigins = getAllowedOrigins();
+      
+      // Permitir requisições sem origin (como mobile apps ou Postman)
+      if (!origin && process.env.NODE_ENV !== "production") {
+        return callback(null, true);
+      }
+      
+      // Verificar se origin está na lista de permitidas
+      if (origin && allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
+    maxAge: 86400, // 24 horas
   })
 );
 
@@ -76,6 +113,12 @@ redis.on("connect", () => {
 redis.on("error", (err) => {
   console.error("Redis connection error:", err);
 });
+
+// Headers de segurança - aplicar antes de outras rotas
+app.use(securityHeaders);
+
+// Logging de segurança - aplicar antes de outras rotas
+app.use(securityLogger);
 
 app.use(express.json()); // Middleware para parsear JSON no corpo das requisições
 

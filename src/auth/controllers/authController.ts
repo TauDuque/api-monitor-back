@@ -3,6 +3,7 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { AuthService } from "../services/authService";
+import { logFailedLogin } from "../../middleware/securityLogger";
 
 // Obter Prisma do request (injetado pelo middleware no server.ts)
 const getPrisma = (req: Request): PrismaClient => {
@@ -52,10 +53,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     res.status(200).json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro ao fazer login";
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
     
     if (message.includes("inválidos") || message.includes("invalid")) {
+      // Registrar tentativa de login falhada
+      logFailedLogin(email, ip, message);
       res.status(401).json({ error: message });
     } else if (message.includes("Email") || message.includes("Password")) {
+      logFailedLogin(email, ip, message);
       res.status(400).json({ error: message });
     } else {
       res.status(500).json({ error: message });

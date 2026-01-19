@@ -63,12 +63,50 @@ export async function generateRefreshToken(payload: TokenPayload): Promise<strin
 }
 
 /**
+ * Verifica se um token está na blacklist
+ * @param token - Token a ser verificado
+ * @returns true se está na blacklist, false caso contrário
+ */
+export async function isTokenBlacklisted(token: string): Promise<boolean> {
+  try {
+    const blacklistKey = `blacklist:token:${token}`;
+    const exists = await redis.exists(blacklistKey);
+    return exists === 1;
+  } catch (error) {
+    console.error("Error checking token blacklist:", error);
+    return false; // Fail-open: se Redis falhar, não bloquear token
+  }
+}
+
+/**
+ * Adiciona um token à blacklist
+ * @param token - Token a ser adicionado à blacklist
+ * @param expiresInSeconds - Tempo de expiração em segundos (padrão: 15 minutos)
+ */
+export async function addTokenToBlacklist(token: string, expiresInSeconds?: number): Promise<void> {
+  try {
+    const blacklistKey = `blacklist:token:${token}`;
+    const ttl = expiresInSeconds || 15 * 60; // Default: 15 minutos (mesmo que access token)
+    await redis.setex(blacklistKey, ttl, "1");
+  } catch (error) {
+    console.error("Error adding token to blacklist:", error);
+    // Não lançar erro, apenas logar
+  }
+}
+
+/**
  * Valida e decodifica um token JWT
  * @param token - Token JWT a ser validado
  * @returns Payload decodificado ou null se inválido
  */
-export function verifyToken(token: string): TokenPayload | null {
+export async function verifyToken(token: string): Promise<TokenPayload | null> {
   try {
+    // Verificar se token está na blacklist
+    const isBlacklisted = await isTokenBlacklisted(token);
+    if (isBlacklisted) {
+      throw new Error("Token revoked");
+    }
+
     if (!JWT_SECRET) {
       throw new Error("JWT_SECRET is not configured");
     }
@@ -82,6 +120,9 @@ export function verifyToken(token: string): TokenPayload | null {
     if (error instanceof jwt.JsonWebTokenError) {
       throw new Error("Invalid token");
     }
+    if (error instanceof Error && error.message === "Token revoked") {
+      throw error;
+    }
     return null;
   }
 }
@@ -93,8 +134,8 @@ export function verifyToken(token: string): TokenPayload | null {
  */
 export async function verifyRefreshToken(token: string): Promise<TokenPayload | null> {
   try {
-    // Verificar assinatura e expiração do token
-    const decoded = verifyToken(token);
+    // Verificar assinatura e expiração do token (agora é assíncrono)
+    const decoded = await verifyToken(token);
     if (!decoded) {
       return null;
     }
@@ -130,6 +171,34 @@ export async function verifyRefreshToken(token: string): Promise<TokenPayload | 
 export async function revokeRefreshToken(token: string): Promise<void> {
   const redisKey = `refresh_token:${token}`;
   await redis.del(redisKey);
+}
+
+/**
+ * Revoga um access token adicionando-o à blacklist
+ * @param token - Access token a ser revogado
+ */
+export async function revokeAccessToken(token: string): Promise<void> {
+  try {
+    // Decodificar token para obter tempo de expiração
+    if (!JWT_SECRET) {
+      throw new Error("JWT_SECRET is not configured");
+    }
+
+    const decoded = jwt.decode(token) as { exp?: number } | null;
+    if (decoded && decoded.exp) {
+      const expiresIn = decoded.exp - Math.floor(Date.now() / 1000);
+      if (expiresIn > 0) {
+        // Adicionar à blacklist com TTL igual ao tempo restante
+        await addTokenToBlacklist(token, expiresIn);
+      }
+    } else {
+      // Se não conseguir decodificar, adicionar com TTL padrão (15 min)
+      await addTokenToBlacklist(token);
+    }
+  } catch (error) {
+    console.error("Error revoking access token:", error);
+    // Não lançar erro, apenas logar
+  }
 }
 
 /**
