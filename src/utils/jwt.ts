@@ -29,9 +29,13 @@ export function generateAccessToken(payload: TokenPayload): string {
     throw new Error("JWT_SECRET must be at least 32 characters long");
   }
 
-  return jwt.sign(payload as object, JWT_SECRET, {
-    expiresIn: ACCESS_EXPIRATION,
-  });
+  return jwt.sign(
+    payload as object,
+    JWT_SECRET,
+    {
+      expiresIn: ACCESS_EXPIRATION,
+    } as jwt.SignOptions
+  );
 }
 
 /**
@@ -44,9 +48,13 @@ export async function generateRefreshToken(payload: TokenPayload): Promise<strin
     throw new Error("JWT_SECRET must be at least 32 characters long");
   }
 
-  const token = jwt.sign(payload as object, JWT_SECRET, {
-    expiresIn: REFRESH_EXPIRATION,
-  });
+  const token = jwt.sign(
+    payload as object,
+    JWT_SECRET,
+    {
+      expiresIn: REFRESH_EXPIRATION,
+    } as jwt.SignOptions
+  );
 
   // Calcular expiração em segundos
   const expiresInSeconds = parseExpirationToSeconds(REFRESH_EXPIRATION);

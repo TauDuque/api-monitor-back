@@ -92,3 +92,21 @@ export function logInvalidToken(ip: string, reason: string): void {
   
   console.warn("[SECURITY]", JSON.stringify(event));
 }
+
+/**
+ * Função para registrar tentativas de acesso não autorizado
+ */
+export function logUnauthorizedAccess(req: Request, reason: string): void {
+  const event: SecurityEvent = {
+    type: "UNAUTHORIZED_ACCESS",
+    message: reason,
+    userId: (req as any).user?.id,
+    ip: req.ip || req.socket.remoteAddress || "unknown",
+    userAgent: req.get("user-agent"),
+    timestamp: new Date().toISOString(),
+    path: req.path,
+    method: req.method,
+  };
+  
+  console.warn("[SECURITY]", JSON.stringify(event));
+}

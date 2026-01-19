@@ -54,6 +54,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro ao fazer login";
     const ip = req.ip || req.socket.remoteAddress || "unknown";
+    const email = (req.body as { email?: string })?.email || "unknown";
     
     if (message.includes("inválidos") || message.includes("invalid")) {
       // Registrar tentativa de login falhada
