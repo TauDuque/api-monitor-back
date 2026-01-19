@@ -14,15 +14,21 @@ export const getUrlHistory = async (req: Request, res: Response) => {
     const parsedTake = take ? parseInt(take as string) : undefined;
     const parsedSkip = skip ? parseInt(skip as string) : undefined;
 
+    // Obter userId se autenticado (multi-tenant)
+    const userId = req.user?.id;
     const history = await monitoredUrlService.getUrlChecksHistory(
       id,
       parsedStartDate,
       parsedEndDate,
       parsedTake,
-      parsedSkip
+      parsedSkip,
+      userId
     );
     res.status(200).json(history);
   } catch (error: any) {
+    if (error.message && error.message.includes("access denied")) {
+      return res.status(403).json({ message: error.message });
+    }
     res
       .status(500)
       .json({ message: "Error fetching URL history", error: error.message });
@@ -31,8 +37,10 @@ export const getUrlHistory = async (req: Request, res: Response) => {
 
 export const getLatestChecks = async (req: Request, res: Response) => {
   try {
+    // Obter userId se autenticado (multi-tenant)
+    const userId = req.user?.id;
     const latestChecks =
-      await monitoredUrlService.getLastCheckStatusForAllUrls();
+      await monitoredUrlService.getLastCheckStatusForAllUrls(userId);
     res.status(200).json(latestChecks);
   } catch (error: any) {
     res
@@ -55,14 +63,20 @@ export const getUptime = async (req: Request, res: Response) => {
     const parsedStartDate = new Date(startDate as string);
     const parsedEndDate = new Date(endDate as string);
 
+    // Obter userId se autenticado (multi-tenant)
+    const userId = req.user?.id;
     const uptimeData = await monitoredUrlService.getUptimeMetrics(
       id,
       period as any, // 'hour' | 'day' | 'week' | 'month'
       parsedStartDate,
-      parsedEndDate
+      parsedEndDate,
+      userId
     );
     res.status(200).json(uptimeData);
   } catch (error: any) {
+    if (error.message && error.message.includes("access denied")) {
+      return res.status(403).json({ message: error.message });
+    }
     res
       .status(500)
       .json({ message: "Error fetching uptime metrics", error: error.message });
@@ -72,14 +86,19 @@ export const getUptime = async (req: Request, res: Response) => {
 export const getIncidents = async (req: Request, res: Response) => {
   try {
     const { id } = req.params; // monitoredUrlId (opcional, se for buscar todos)
+    // Obter userId se autenticado (multi-tenant)
+    const userId = req.user?.id;
     let incidents;
     if (id) {
-      incidents = await monitoredUrlService.getIncidentsByUrl(id);
+      incidents = await monitoredUrlService.getIncidentsByUrl(id, userId);
     } else {
-      incidents = await monitoredUrlService.getAllIncidents();
+      incidents = await monitoredUrlService.getAllIncidents(userId);
     }
     res.status(200).json(incidents);
   } catch (error: any) {
+    if (error.message && error.message.includes("access denied")) {
+      return res.status(403).json({ message: error.message });
+    }
     res
       .status(500)
       .json({ message: "Error fetching incidents", error: error.message });

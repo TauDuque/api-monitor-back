@@ -7,15 +7,22 @@ import {
 import { performUrlCheck } from "../services/checkService"; // Importe o checkService
 import { PrismaClient } from "@prisma/client"; // Importe o PrismaClient
 
-const prisma = new PrismaClient();
+// Obter Prisma do request (injetado pelo middleware no server.ts)
+const getPrisma = (req: Request): PrismaClient => {
+  return (req as any).prisma;
+};
 
 export const createUrl = async (req: Request, res: Response) => {
   try {
     const { url, name, interval } = req.body;
+    // Obter userId se autenticado (multi-tenant)
+    const userId = req.user?.id;
+    
     const newUrl = await monitoredUrlService.createMonitoredURL({
       url,
       name,
       interval,
+      userId, // Adicionar userId se fornecido
     });
 
     // Fazer verificação imediata
@@ -24,6 +31,7 @@ export const createUrl = async (req: Request, res: Response) => {
       const checkResult = await performUrlCheck(url, 5000);
 
       // Salvar o resultado da verificação imediata
+      const prisma = getPrisma(req);
       await prisma.uRLCheck.create({
         data: {
           monitoredUrlId: newUrl.id,
@@ -58,7 +66,9 @@ export const createUrl = async (req: Request, res: Response) => {
 
 export const getUrls = async (req: Request, res: Response) => {
   try {
-    const urls = await monitoredUrlService.getAllMonitoredURLs();
+    // Obter userId se autenticado (multi-tenant)
+    const userId = req.user?.id;
+    const urls = await monitoredUrlService.getAllMonitoredURLs(userId);
     res.status(200).json(urls);
   } catch (error: any) {
     res
@@ -70,12 +80,17 @@ export const getUrls = async (req: Request, res: Response) => {
 export const getUrlById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const url = await monitoredUrlService.getMonitoredURLById(id);
+    // Obter userId se autenticado (multi-tenant)
+    const userId = req.user?.id;
+    const url = await monitoredUrlService.getMonitoredURLById(id, userId);
     if (!url) {
       return res.status(404).json({ message: "URL not found" });
     }
     res.status(200).json(url);
   } catch (error: any) {
+    if (error.message && error.message.includes("access denied")) {
+      return res.status(403).json({ message: error.message });
+    }
     res
       .status(500)
       .json({ message: "Error fetching URL", error: error.message });
@@ -85,9 +100,12 @@ export const getUrlById = async (req: Request, res: Response) => {
 export const updateUrl = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    // Obter userId se autenticado (multi-tenant)
+    const userId = req.user?.id;
     const updatedUrl = await monitoredUrlService.updateMonitoredURL(
       id,
-      req.body
+      req.body,
+      userId
     );
     // Se o intervalo ou status 'active' mudar, reagende
     if (req.body.interval !== undefined || req.body.active !== undefined) {
@@ -99,6 +117,9 @@ export const updateUrl = async (req: Request, res: Response) => {
     }
     res.status(200).json(updatedUrl);
   } catch (error: any) {
+    if (error.message && error.message.includes("access denied")) {
+      return res.status(403).json({ message: error.message });
+    }
     if (error.code === "P2025") {
       // Record not found
       return res.status(404).json({ message: "URL not found for update." });
@@ -112,14 +133,19 @@ export const updateUrl = async (req: Request, res: Response) => {
 export const deleteUrl = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const urlToDelete = await monitoredUrlService.getMonitoredURLById(id);
+    // Obter userId se autenticado (multi-tenant)
+    const userId = req.user?.id;
+    const urlToDelete = await monitoredUrlService.getMonitoredURLById(id, userId);
     if (!urlToDelete) {
       return res.status(404).json({ message: "URL not found for deletion." });
     }
-    await monitoredUrlService.deleteMonitoredURL(id);
+    await monitoredUrlService.deleteMonitoredURL(id, userId);
     await removeScheduledUrlCheck(urlToDelete); // Remova o agendamento ao deletar
     res.status(204).send(); // No content
   } catch (error: any) {
+    if (error.message && error.message.includes("access denied")) {
+      return res.status(403).json({ message: error.message });
+    }
     if (error.code === "P2025") {
       // Record not found
       return res.status(404).json({ message: "URL not found for deletion." });
