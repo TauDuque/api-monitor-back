@@ -8,6 +8,7 @@ import { Server as SocketIOServer } from "socket.io"; // Importe o Socket.io Ser
 import monitoredUrlRoutes from "./routes/monitoredUrlRoutes"; // Importe as rotas
 import checkRoutes from "./routes/checkRoutes"; // Importe as rotas de checks
 import alertConfigRoutes from "./routes/alertConfigRoutes"; // Importe as rotas de configuração de alertas
+import authRoutes from "./auth/routes"; // Importe as rotas de autenticação
 import { checkQueue, setIoInstance } from "./queue/checkQueue"; // Importe a fila e setIoInstance
 import { loadAndScheduleAllUrls } from "./services/schedulerService"; // Importe o scheduler
 import { apiRateLimiter, urlCheckRateLimiter } from "./middleware/rateLimiter";
@@ -109,6 +110,9 @@ app.get("/", async (req, res) => {
     });
   }
 });
+
+// Use as rotas de autenticação (públicas)
+app.use("/auth", authRoutes);
 
 // Use as rotas de URLs monitoradas
 app.use("/api/monitored-urls", monitoredUrlRoutes);
